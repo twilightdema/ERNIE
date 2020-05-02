@@ -17,7 +17,7 @@ lr=5e-5
 batch_size=16
 epoch=3
 
-for i in {1..5};do
+for i in {1..1};do
 
 python -u ./ernie/run_classifier.py                                                         \
        --use_cuda true                                                              \
@@ -50,7 +50,7 @@ python -u ./ernie/run_classifier.py                                             
        --is_classify false                                                          \
        --is_regression true                                                         \
        --metric 'pearson_and_spearman'                                              \
-       --test_save output/test_out.$i.tsv                                           \
-       --random_seed 1 2>&1 | tee  log/job.$i.$lr.$batch_size.$epoch.$timestamp.log \
+       --test_save output/STS-B/test_out.$i.tsv                                           \
+       --random_seed 1 2>&1 | tee  log/STS-B/job.$i.$lr.$batch_size.$epoch.$timestamp.log \
 
 done

@@ -19,7 +19,7 @@ batch_size=8
 epoch=4
 
 
-for i in {1..5};do
+for i in {1..1};do
 
    python -u ./ernie/run_classifier.py                                            \
        --for_cn False                                                     \
@@ -49,7 +49,7 @@ for i in {1..5};do
        --skip_steps 10                                                    \
        --num_iteration_per_drop_scope 1                                   \
        --num_labels 2                                                     \
-       --test_save output/test_out.$i.$lr.$batch_size.$epoch.tsv          \
-       --random_seed 1 2>&1 | tee  log/job.$i.$lr.$batch_size.$epoch.log  \
+       --test_save output/WNLI/test_out.$i.$lr.$batch_size.$epoch.tsv          \
+       --random_seed 1 2>&1 | tee  log/WNLI/job.$i.$lr.$batch_size.$epoch.log  \
 
 done

@@ -20,7 +20,7 @@ lr=3e-5
 batch_size=64
 epoch=3
 
-for i in {1..5};do
+for i in {1..1};do
 python -u ernie/run_classifier.py                                                          \
        --use_cuda true                                                               \
        --for_cn  False                                                               \
@@ -50,8 +50,8 @@ python -u ernie/run_classifier.py                                               
        --num_iteration_per_drop_scope 1                                              \
        --num_labels 2                                                                \
        --metric 'matthews_corrcoef'                                                  \
-       --test_save output/test_out.$i.$lr.$batch_size.$epoch.$timestamp.tsv          \
-       --random_seed 1 2>&1 | tee  log/job.$i.$lr.$batch_size.$epoch.$timestamp.log  \
+       --test_save output/CoLA/test_out.$i.$lr.$batch_size.$epoch.$timestamp.tsv          \
+       --random_seed 1 2>&1 | tee  log/CoLA/job.$i.$lr.$batch_size.$epoch.$timestamp.log  \
 
 
 done

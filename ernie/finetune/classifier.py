@@ -106,7 +106,9 @@ def create_model(args,
             "accuracy": accuracy,
             "labels": labels,
             "num_seqs": num_seqs,
-            "qids": qids
+            "qids": qids,
+            "src_ids": src_ids,
+            "sent_ids": sent_ids
         }
     elif is_regression:
         cost = fluid.layers.square_error_cost(input=logits, label=labels)
@@ -116,7 +118,10 @@ def create_model(args,
             "probs": logits,
             "labels": labels,
             "num_seqs": num_seqs,
-            "qids": qids
+            "qids": qids,
+            "src_ids": src_ids,
+            "sent_ids": sent_ids
+
         }
     else:
         raise ValueError(
@@ -264,6 +269,98 @@ def evaluate_classify(exe,
         raise ValueError('unsupported metric {}'.format(metric))
     return evaluate_info
 
+def evaluate_classify_with_result(exe,
+                      test_program,
+                      test_pyreader,
+                      graph_vars,
+                      eval_phase,
+                      use_multi_gpu_test=False,
+                      metric='simple_accuracy',
+                      is_classify=False,
+                      is_regression=False):
+    train_fetch_list = [
+        graph_vars["loss"].name, graph_vars["accuracy"].name,
+        graph_vars["num_seqs"].name
+    ]
+
+    if eval_phase == "train":
+        if "learning_rate" in graph_vars:
+            train_fetch_list.append(graph_vars["learning_rate"].name)
+        outputs = exe.run(fetch_list=train_fetch_list)
+        ret = {"loss": np.mean(outputs[0]), "accuracy": np.mean(outputs[1])}
+        if "learning_rate" in graph_vars:
+            ret["learning_rate"] = float(outputs[3][0])
+        return ret
+
+    test_pyreader.start()
+    total_cost, total_acc, total_num_seqs, total_label_pos_num, total_pred_pos_num, total_correct_num = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    qids, labels, scores, preds, src_ids, sent_ids = [], [], [], [], [], []
+    time_begin = time.time()
+
+    fetch_list = [
+        graph_vars["loss"].name, graph_vars["accuracy"].name,
+        graph_vars["probs"].name, graph_vars["labels"].name,
+        graph_vars["num_seqs"].name, graph_vars["qids"].name,
+        graph_vars["src_ids"].name, graph_vars["sent_ids"].name,
+    ]
+    while True:
+        try:
+            if use_multi_gpu_test:
+                np_loss, np_acc, np_probs, np_labels, np_num_seqs, np_qids, np_src_ids, np_sent_ids = exe.run(
+                    fetch_list=fetch_list)
+            else:
+                np_loss, np_acc, np_probs, np_labels, np_num_seqs, np_qids, np_src_ids, np_sent_ids = exe.run(
+                    program=test_program, fetch_list=fetch_list)
+            total_cost += np.sum(np_loss * np_num_seqs)
+            total_acc += np.sum(np_acc * np_num_seqs)
+            total_num_seqs += np.sum(np_num_seqs)
+            labels.extend(np_labels.reshape((-1)).tolist())
+            if np_qids is None:
+                np_qids = np.array([])
+            qids.extend(np_qids.reshape(-1).tolist())
+            src_ids.extend(np_src_ids[:, :, 0].tolist())
+            sent_ids.extend(np_sent_ids[:, :, 0].tolist())
+            scores.extend(np_probs[:, 1].reshape(-1).tolist())
+            np_preds = np.argmax(np_probs, axis=1).astype(np.float32)
+            preds.extend(np_preds)
+            total_label_pos_num += np.sum(np_labels)
+            total_pred_pos_num += np.sum(np_preds)
+            total_correct_num += np.sum(np.dot(np_preds, np_labels))
+        except fluid.core.EOFException:
+            test_pyreader.reset()
+            break
+    time_end = time.time()
+    cost = total_cost / total_num_seqs
+    elapsed_time = time_end - time_begin
+
+    evaluate_info = ""
+    if metric == 'acc_and_f1':
+        ret = acc_and_f1(preds, labels)
+        evaluate_info = "[%s evaluation] ave loss: %f, ave_acc: %f, f1: %f, data_num: %d, elapsed time: %f s" \
+            % (eval_phase, cost, ret['acc'], ret['f1'], total_num_seqs, elapsed_time)
+    elif metric == 'matthews_corrcoef':
+        ret = matthews_corrcoef(preds, labels)
+        evaluate_info = "[%s evaluation] ave loss: %f, matthews_corrcoef: %f, data_num: %d, elapsed time: %f s" \
+            % (eval_phase, cost, ret, total_num_seqs, elapsed_time)
+    elif metric == 'pearson_and_spearman':
+        ret = pearson_and_spearman(scores, labels)
+        evaluate_info = "[%s evaluation] ave loss: %f, pearson:%f, spearman:%f, corr:%f, data_num: %d, elapsed time: %f s" \
+            % (eval_phase, cost, ret['pearson'], ret['spearman'], ret['corr'], total_num_seqs, elapsed_time)
+    elif metric == 'simple_accuracy':
+        ret = simple_accuracy(preds, labels)
+        evaluate_info = "[%s evaluation] ave loss: %f, acc:%f, data_num: %d, elapsed time: %f s" \
+            % (eval_phase, cost, ret, total_num_seqs, elapsed_time)
+    elif metric == "acc_and_f1_and_mrr":
+        ret_a = acc_and_f1(preds, labels)
+        preds_ = sorted(
+            zip(qids, scores, labels), key=lambda elem: (elem[0], -elem[1]))
+        ret_b = evaluate_mrr(preds_)
+        evaluate_info = "[%s evaluation] ave loss: %f, acc: %f, f1: %f, mrr: %f, data_num: %d, elapsed time: %f s" \
+            % (eval_phase, cost, ret_a['acc'], ret_a['f1'], ret_b, total_num_seqs, elapsed_time)
+    else:
+        raise ValueError('unsupported metric {}'.format(metric))
+    return evaluate_info, qids, labels, scores, preds, src_ids, sent_ids
+
 
 def evaluate_regression(exe,
                         test_program,
@@ -322,6 +419,66 @@ def evaluate_regression(exe,
 
     return evaluate_info
 
+def evaluate_regression_with_result(exe,
+                        test_program,
+                        test_pyreader,
+                        graph_vars,
+                        eval_phase,
+                        use_multi_gpu_test=False,
+                        metric='pearson_and_spearman'):
+
+    if eval_phase == "train":
+        train_fetch_list = [graph_vars["loss"].name]
+        if "learning_rate" in graph_vars:
+            train_fetch_list.append(graph_vars["learning_rate"].name)
+        outputs = exe.run(fetch_list=train_fetch_list)
+        ret = {"loss": np.mean(outputs[0])}
+        if "learning_rate" in graph_vars:
+            ret["learning_rate"] = float(outputs[1][0])
+        return ret
+
+    test_pyreader.start()
+    total_cost, total_num_seqs = 0.0, 0.0
+    qids, labels, scores, src_ids, sent_ids = [], [], [], [], []
+
+    fetch_list = [
+        graph_vars["loss"].name, graph_vars["probs"].name,
+        graph_vars["labels"].name, graph_vars["qids"].name,
+        graph_vars["src_ids"].name, graph_vars["sent_ids"].name,
+    ]
+
+    time_begin = time.time()
+    while True:
+        try:
+            if use_multi_gpu_test:
+                np_loss, np_probs, np_labels, np_qids, np_src_ids, np_sent_ids = exe.run(
+                    fetch_list=fetch_list)
+            else:
+                np_loss, np_probs, np_labels, np_qids, np_src_ids, np_sent_ids = exe.run(
+                    program=test_program, fetch_list=fetch_list)
+            labels.extend(np_labels.reshape((-1)).tolist())
+            if np_qids is None:
+                np_qids = np.array([])
+            qids.extend(np_qids.reshape(-1).tolist())
+            src_ids.extend(np_src_ids[:, :, 0].tolist())
+            sent_ids.extend(np_sent_ids[:, :, 0].tolist())
+            scores.extend(np_probs.reshape(-1).tolist())
+        except fluid.core.EOFException:
+            test_pyreader.reset()
+            break
+    time_end = time.time()
+
+    elapsed_time = time_end - time_begin
+
+    if metric == 'pearson_and_spearman':
+        ret = pearson_and_spearman(scores, labels)
+        evaluate_info = "[%s evaluation] ave loss: %f, pearson:%f, spearman:%f, corr:%f, elapsed time: %f s" \
+            % (eval_phase, 0.0, ret['pearson'], ret['spearmanr'], ret['corr'], elapsed_time)
+    else:
+        raise ValueError('unsupported metric {}'.format(metric))
+
+    return evaluate_info, qids, labels, scores, None, src_ids, sent_ids
+
 
 def evaluate(exe,
              test_program,
@@ -352,6 +509,34 @@ def evaluate(exe,
             use_multi_gpu_test=use_multi_gpu_test,
             metric=metric)
 
+def evaluate_with_result(exe,
+             test_program,
+             test_pyreader,
+             graph_vars,
+             eval_phase,
+             use_multi_gpu_test=False,
+             metric='simple_accuracy',
+             is_classify=False,
+             is_regression=False):
+
+    if is_classify:
+        return evaluate_classify_with_result(
+            exe,
+            test_program,
+            test_pyreader,
+            graph_vars,
+            eval_phase,
+            use_multi_gpu_test=use_multi_gpu_test,
+            metric=metric)
+    else:
+        return evaluate_regression_with_result(
+            exe,
+            test_program,
+            test_pyreader,
+            graph_vars,
+            eval_phase,
+            use_multi_gpu_test=use_multi_gpu_test,
+            metric=metric)
 
 def matthews_corrcoef(preds, labels):
     preds = np.array(preds)

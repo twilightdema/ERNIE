@@ -13,7 +13,7 @@ fi
 
 mkdir -p log/
 
-for i in {1..5};do
+for i in {1..1};do
 
     timestamp=`date "+%Y-%m-%d-%H-%M-%S"`
 
@@ -46,7 +46,7 @@ for i in {1..5};do
                --num_iteration_per_drop_scope 1                                \
                --num_labels 2                                                  \
                --for_cn  False                                                 \
-               --test_save output/test_out.$i.tsv                              \
-               --random_seed 1 2>&1 | tee  log/job.$i.$timestamp.log           \
+               --test_save output/RTE/test_out.$i.tsv                              \
+               --random_seed 1 2>&1 | tee  log/RTE/job.$i.$timestamp.log           \
 
 done

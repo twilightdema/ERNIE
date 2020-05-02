@@ -17,7 +17,7 @@ lr=3e-5
 batch_size=16
 epoch=4
 
-for i in {1..5};do
+for i in {1..1};do
 
     timestamp=`date "+%Y-%m-%d-%H-%M-%S"`
     python -u ./ernie/run_classifier.py                                              \
@@ -50,7 +50,7 @@ for i in {1..5};do
            --num_labels 2                                                    \
            --metric 'acc_and_f1'                                             \
            --for_cn  False                                                   \
-           --test_save output/test_out.$i.$lr.$batch_size.$epoch.tsv         \
-           --random_seed 1 2>&1 | tee  log/job.$i.$lr.$batch_size.$epoch.log \
+           --test_save output/MRPC/test_out.$i.$lr.$batch_size.$epoch.tsv         \
+           --random_seed 1 2>&1 | tee  log/MPRC/job.$i.$lr.$batch_size.$epoch.log \
 
 done

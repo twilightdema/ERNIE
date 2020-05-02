@@ -17,9 +17,9 @@ lr=2e-5
 batch_size=32
 epoch=4
 
-for i in {1..5};do
+for i in {1..1};do
 
- python -u ./ernie/run_classifier.py                                                       \
+ python -u ./ernie/run_classifier.py                                               \
       --for_cn  False                                                              \
       --use_cuda true                                                              \
       --use_fast_executor ${e_executor:-"true"}                                    \
@@ -47,8 +47,8 @@ for i in {1..5};do
       --skip_steps 10                                                              \
       --num_iteration_per_drop_scope 1                                             \
       --num_labels 2                                                               \
-      --test_save output/test_out.$i.$lr.$batch_size.$epoch.tsv                    \
-      --random_seed 1 2>&1 | tee  log/job.$i.$lr.$batch_size.$epoch.$timestamp.log \
+      --test_save output/SST-2/test_out.$i.$lr.$batch_size.$epoch.tsv                    \
+      --random_seed 1 2>&1 | tee  log/SST-2/job.$i.$lr.$batch_size.$epoch.$timestamp.log \
 
 done
 

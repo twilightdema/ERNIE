@@ -51,7 +51,7 @@ for i in {1..1};do
        --num_iteration_per_drop_scope 1                                            \
        --num_labels 2                                                              \
        --metric 'acc_and_f1'                                                       \
-       --test_save output/test_out.$i.$lr.$batch_size.$epoch.tsv                   \
-       --random_seed  1 2>&1 | tee log/job.$i.$lr.$batch_size.$epoch.log           \
+       --test_save output/QQP/test_out.$i.$lr.$batch_size.$epoch.tsv                   \
+       --random_seed  1 2>&1 | tee log/QQP/job.$i.$lr.$batch_size.$epoch.log           \
 
 done

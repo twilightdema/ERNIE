@@ -17,7 +17,7 @@ lr=3e-5
 batch_size=64
 epoch=3
 
-for i in {1..5};do
+for i in {1..1};do
 
 timestamp=`date "+%Y-%m-%d-%H-%M-%S"`
 
@@ -49,9 +49,9 @@ python -u ./ernie/run_classifier.py                                             
        --num_iteration_per_drop_scope 1                                                 \
        --num_labels 3                                                                   \
        --for_cn False                                                                   \
-       --test_save output/test_out.$i.m.tsv,output/test_out.$i.mm.tsv                   \
-       --diagnostic ${TASK_DATA_PATH}/diagnostic.tsv                                    \
-       --diagnostic_save output/test_out.$i.$lr.$batch_size.$epoch.$timestamp.m.diagnostic.tsv \
-       --random_seed 1 2>&1 | tee  log/job.$i.$lr.$batch_size.$epoch.$timestamp.log            \
+       --test_save output/MNLI/test_out.$i.m.tsv,output/MNLI/test_out.$i.mm.tsv                   \
+       --diagnostic ${TASK_DATA_PATH}/MNLI/diagnostic.tsv                                    \
+       --diagnostic_save output/MNLI/test_out.$i.$lr.$batch_size.$epoch.$timestamp.m.diagnostic.tsv \
+       --random_seed 1 2>&1 | tee  log/MNLI/job.$i.$lr.$batch_size.$epoch.$timestamp.log            \
 
 done

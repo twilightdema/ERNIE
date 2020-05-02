@@ -33,7 +33,7 @@ import paddle.fluid as fluid
 
 import reader.task_reader as task_reader
 from model.ernie import ErnieConfig
-from finetune.classifier import create_model, evaluate, predict
+from finetune.classifier import create_model, evaluate, predict, evaluate_with_result
 from optimization import optimization
 from utils.args import print_arguments, check_cuda, prepare_logger
 from utils.init import init_pretraining_params, init_checkpoint
@@ -379,26 +379,50 @@ def evaluate_wrapper(args, reader, exe, test_prog, test_pyreader, graph_vars,
                      epoch, steps):
     # evaluate dev set
     batch_size = args.batch_size if args.predict_batch_size is None else args.predict_batch_size
-    for ds in args.dev_set.split(','):
-        test_pyreader.set_batch_generator(
-            reader.data_generator(
-                ds,
-                batch_size=batch_size,
-                epoch=1,
-                dev_count=1,
-                shuffle=False))
-        log.info("validation result of dataset {}:".format(ds))
-        evaluate_info = evaluate(
-            exe,
-            test_prog,
-            test_pyreader,
-            graph_vars,
-            "dev",
-            metric=args.metric,
-            is_classify=args.is_classify,
-            is_regression=args.is_regression)
-        log.info(evaluate_info + ', file: {}, epoch: {}, steps: {}'.format(
-            ds, epoch, steps))
+    for ds, save_f in zip(args.dev_set.split(','), args.test_save.split(',')):
+
+        save_path = save_f + '.' + str(epoch) + '.' + str(steps) + '.analysis.csv'
+        save_dir = os.path.dirname(save_path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        with open(save_path, 'w', encoding='utf-8') as f:
+            f.write('ID\tINPUT\tSCORE\tPREDICTION\tLABEL\n')
+
+            test_pyreader.set_batch_generator(
+                reader.data_generator(
+                    ds,
+                    batch_size=batch_size,
+                    epoch=1,
+                    dev_count=1,
+                    shuffle=False))
+            log.info("validation result of dataset {}:".format(ds))
+            evaluate_info, qids, labels, scores, preds, src_ids, sent_ids = evaluate_with_result(
+                exe,
+                test_prog,
+                test_pyreader,
+                graph_vars,
+                "dev",
+                metric=args.metric,
+                is_classify=args.is_classify,
+                is_regression=args.is_regression)
+
+            # Convert src_ids back to original string, possibly seperated by sent_ids
+            input_texts = [reader.tokenizer.convert_ids_to_tokens(src_id) for src_id in src_ids]
+            input_texts = [[s for s in l if s != '[PAD]' and s != '[CLS]'] for l in input_texts]
+            input_texts = [' '.join(s) for s in input_texts] 
+
+            # If qids is not valid, we created dummy ones
+            if len(qids) == 0:
+                qids = [' ' for _ in range(len(labels))]
+
+            # Print debug output
+            for qid, label, score, pred, src_id, sent_id, input_text in zip(qids, labels, scores, preds, src_ids, sent_ids, input_texts):
+                print(str(qid) + ') ' + str(input_text) + ' => ' + str(pred) + ' / ' + str(label))
+                f.write(str(qid) + '\t' + str(input_text) + '\t' + str(score) + '\t' + str(pred) + '\t' + str(label) + '\n')
+
+            log.info(evaluate_info + ', file: {}, epoch: {}, steps: {}'.format(
+                ds, epoch, steps))
 
 
 def predict_wrapper(args, reader, exe, test_prog, test_pyreader, graph_vars,

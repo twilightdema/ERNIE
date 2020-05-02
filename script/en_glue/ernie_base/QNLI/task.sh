@@ -19,7 +19,7 @@ lr=2e-5
 batch_size=32
 epoch=4
 
-for i in {1..5};do
+for i in {1..1};do
 
     timestamp=`date "+%Y-%m-%d-%H-%M-%S"`
 
@@ -51,8 +51,8 @@ for i in {1..5};do
            --skip_steps 10                                                     \
            --num_iteration_per_drop_scope 1                                    \
            --num_labels 2                                                      \
-           --test_save output/test_out.$i.$lr.$batch_size.$epoch.tsv           \
-           --random_seed  1 2>&1 | tee log/job.$i.$lr.$batch_size.$epoch.log   \
+           --test_save output/QNLI/test_out.$i.$lr.$batch_size.$epoch.tsv           \
+           --random_seed  1 2>&1 | tee log/QNLI/job.$i.$lr.$batch_size.$epoch.log   \
 
 done
 

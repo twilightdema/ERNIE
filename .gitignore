@@ -2,3 +2,10 @@
 *.un~
 *.swp
 *.egg-info/
+env
+glue_data
+glue_data_processed
+log
+checkpoints
+output
+ERNIE_Base_en_stable-2.0.0

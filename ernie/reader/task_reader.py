@@ -123,6 +123,7 @@ class BaseReader(object):
         """Converts a single `Example` into a single `Record`."""
 
         text_a = tokenization.convert_to_unicode(example.text_a)
+        text_b = None
         tokens_a = tokenizer.tokenize(text_a)
         tokens_b = None
 
@@ -186,11 +187,13 @@ class BaseReader(object):
 
         if self.is_inference:
             Record = namedtuple('Record',
-                                ['token_ids', 'text_type_ids', 'position_ids'])
+                                ['token_ids', 'text_type_ids', 'position_ids', 'text_a', 'text_b'])
             record = Record(
                 token_ids=token_ids,
                 text_type_ids=text_type_ids,
-                position_ids=position_ids)
+                position_ids=position_ids,
+                text_a=text_a,
+                text_b=text_b)
         else:
             if self.label_map:
                 label_id = self.label_map[example.label]
@@ -198,7 +201,7 @@ class BaseReader(object):
                 label_id = example.label
 
             Record = namedtuple('Record', [
-                'token_ids', 'text_type_ids', 'position_ids', 'label_id', 'qid'
+                'token_ids', 'text_type_ids', 'position_ids', 'label_id', 'qid', 'text_a', 'text_b'
             ])
 
             qid = None
@@ -210,7 +213,9 @@ class BaseReader(object):
                 text_type_ids=text_type_ids,
                 position_ids=position_ids,
                 label_id=label_id,
-                qid=qid)
+                qid=qid,
+                text_a=text_a,
+                text_b=text_b)
         return record
 
     def _prepare_batch_data(self, examples, batch_size, phase=None):
@@ -398,7 +403,8 @@ class SequenceLabelReader(BaseReader):
         return ret_tokens, ret_labels
 
     def _convert_example_to_record(self, example, max_seq_length, tokenizer):
-        tokens = tokenization.convert_to_unicode(example.text_a).split(u"")
+        text_a = tokenization.convert_to_unicode(example.text_a)
+        tokens = text_a.split(u"")
         labels = tokenization.convert_to_unicode(example.label).split(u"")
         tokens, labels = self._reseg_token_label(tokens, labels, tokenizer)
 
@@ -417,12 +423,14 @@ class SequenceLabelReader(BaseReader):
 
         Record = namedtuple(
             'Record',
-            ['token_ids', 'text_type_ids', 'position_ids', 'label_ids'])
+            ['token_ids', 'text_type_ids', 'position_ids', 'label_ids', 'text_a', 'text_b'])
         record = Record(
             token_ids=token_ids,
             text_type_ids=text_type_ids,
             position_ids=position_ids,
-            label_ids=label_ids)
+            label_ids=label_ids,
+            text_a=text_a,
+            text_b=None)
         return record
 
 
